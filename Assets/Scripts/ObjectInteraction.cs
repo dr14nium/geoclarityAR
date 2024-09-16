@@ -25,7 +25,7 @@ public class ObjectInteraction : MonoBehaviour
                 if (featureAttributes != null)
                 {
                     Debug.Log($"[ObjectInteraction] Triggered on {gameObject.name} with FeatureAttributes.");
-                    UIManager.Instance.ShowObjectInformation(featureAttributes);
+                    ObjectInfoManager.Instance.ShowObjectInformation(featureAttributes);
                 }
                 else
                 {

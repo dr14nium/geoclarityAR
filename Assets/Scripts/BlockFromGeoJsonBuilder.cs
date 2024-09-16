@@ -4,24 +4,25 @@ using Newtonsoft.Json;
 using UnityEngine;
 using GeoJSON.Net.Feature;
 using GeoJSON.Net.Geometry;
+using UnityEngine.Networking;
 
 public class BlockFromGeoJsonBuilder : MonoBehaviour
 {
-    public TextAsset geoJsonFile;
+    public string apiUrl = "http://localhost:3000/getGeoJson";
     public WorldPositionAnchor worldPositionAnchor;
     public string objectNamePrefix = "Object";
 
     public bool createWireframe;
     public bool createFullMesh;
 
-    public float wireframeThickness = 0.1f; // Adjustable wireframe thickness from Inspector
-    public Color wireframeColor = Color.black; // Default wireframe color
+    public float wireframeThickness = 0.1f;
+    public Color wireframeColor = Color.black;
 
     public bool create2DModel;
     public bool create3DModel;
 
-    public bool useUniformHeight; // New setting to choose whether to use uniform height
-    public float uniformHeight = 10f; // Default uniform height value
+    public bool useUniformHeight;
+    public float uniformHeight = 10f;
     public string heightField = "height";
     public string objectCategoryField = "category";
     public List<ObjectMaterial> objectMaterials = new List<ObjectMaterial>();
@@ -29,40 +30,37 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
     public Material singleMaterial;
     public bool useMultipleMaterials;
 
-    // Properties for wireframe colors
     public bool useMultipleColors;
     public string colorCategoryField = "category";
     public List<ObjectColor> objectColors = new List<ObjectColor>();
 
-    public void GenerateObjects()
+    void Start()
+    {
+        StartCoroutine(FetchGeoJsonData());
+    }
+    
+    public IEnumerator<object> FetchGeoJsonData()
+    {
+        UnityWebRequest request = UnityWebRequest.Get(apiUrl);
+        yield return request.SendWebRequest();
+
+        if (request.result != UnityWebRequest.Result.Success)
+        {
+            Debug.LogError("Failed to fetch GeoJSON data: " + request.error);
+        }
+        else
+        {
+            string json = request.downloadHandler.text;
+            GenerateObjects(json);
+        }
+    }
+
+
+    private void GenerateObjects(string geoJsonText)
     {
         ClearObjects();
 
-        if (geoJsonFile == null)
-        {
-            Debug.LogError("GeoJSON file not set.");
-            return;
-        }
-
-        if (worldPositionAnchor == null)
-        {
-            Debug.LogError("WorldPositionAnchor not set.");
-            return;
-        }
-
-        if (!create2DModel && !create3DModel)
-        {
-            Debug.LogError("No model option selected (2D or 3D).");
-            return;
-        }
-
-        if (!createWireframe && !createFullMesh)
-        {
-            Debug.LogError("No mesh option selected (wireframe or full mesh).");
-            return;
-        }
-
-        var geoJson = JsonConvert.DeserializeObject<FeatureCollection>(geoJsonFile.text);
+        var geoJson = JsonConvert.DeserializeObject<FeatureCollection>(geoJsonText);
         if (geoJson == null || geoJson.Features == null)
         {
             Debug.LogError("Failed to parse GeoJSON or no features found.");
@@ -100,7 +98,7 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
         GameObject obj = new GameObject(objectName);
         obj.transform.SetParent(this.transform, false);
 
-        // Determine the wireframe color or material based on the category if multiple colors/materials are used
+        // Tentukan warna wireframe atau material berdasarkan kategori jika multiple colors/materials digunakan
         Color wireframeColorToUse = wireframeColor; // Default wireframe color
         if (createWireframe && useMultipleColors)
         {
@@ -128,15 +126,16 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
             create3DModel ? heightField : "", 
             createWireframe, 
             wireframeColorToUse, 
-            useUniformHeight,   // Added this parameter
-            uniformHeight);     // Added this parameter
-        blockBuilder.wireframeThickness = this.wireframeThickness; // Set wireframe thickness
+            useUniformHeight,   
+            uniformHeight);
+        blockBuilder.wireframeThickness = this.wireframeThickness; 
         blockBuilder.Draw(createFullMesh);
 
-        // Material assignment only if full mesh is created
+        // Material assignment dan penambahan MeshRenderer/MeshFilter hanya jika full mesh dibuat
         if (createFullMesh)
         {
-            var meshRenderer = obj.GetComponent<MeshRenderer>() ?? obj.AddComponent<MeshRenderer>();
+            MeshRenderer meshRenderer = obj.GetComponent<MeshRenderer>() ?? obj.AddComponent<MeshRenderer>();
+            MeshFilter meshFilter = obj.GetComponent<MeshFilter>() ?? obj.AddComponent<MeshFilter>();
 
             if (useMultipleMaterials)
             {
@@ -169,10 +168,10 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
                 Debug.LogWarning($"No material assigned for {objectName}");
             }
 
-            // Create the appropriate mesh collider
+            // Buat mesh collider yang sesuai
             CreateIntegratedMeshCollider(obj);
             
-            // Add FeatureAttributesHolder and ObjectInteraction to the parent object
+            // Tambahkan FeatureAttributesHolder dan ObjectInteraction ke object parent
             var featureAttributes = ScriptableObject.CreateInstance<FeatureAttributes>();
             featureAttributes.Initialize(new Dictionary<string, object>(feature.Properties));
 
@@ -184,7 +183,7 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
         }
         else if (createWireframe)
         {
-            // If wireframe is selected, FeatureAttributesHolder and ObjectInteraction are added only to ColliderMesh
+            // Jika wireframe dipilih, tambahkan collider mesh tanpa MeshRenderer atau MeshFilter
             CreateSeparateMeshCollider(obj, geometry, feature.Properties, create3DModel ? heightField : "");
         }
 
@@ -210,9 +209,12 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
             uniformHeight);     // Added this parameter
         blockBuilder.Draw(true); // Create full mesh for collider
 
-        // Add MeshCollider to the child object
-        var meshCollider = colliderObject.AddComponent<MeshCollider>();
-        meshCollider.convex = false;
+        // Ensure MeshCollider is only added once
+        if (colliderObject.GetComponent<MeshCollider>() == null)
+        {
+            var meshCollider = colliderObject.AddComponent<MeshCollider>();
+            meshCollider.convex = false;
+        }
 
         // Disable MeshRenderer on the child object so that the collider is invisible
         MeshRenderer renderer = colliderObject.GetComponent<MeshRenderer>();
@@ -236,8 +238,12 @@ public class BlockFromGeoJsonBuilder : MonoBehaviour
 
     private void CreateIntegratedMeshCollider(GameObject obj)
     {
-        var meshCollider = obj.AddComponent<MeshCollider>();
-        meshCollider.convex = false;
+        // Ensure MeshCollider is only added once
+        if (obj.GetComponent<MeshCollider>() == null)
+        {
+            var meshCollider = obj.AddComponent<MeshCollider>();
+            meshCollider.convex = false;
+        }
     }
 
     public void ClearObjects()

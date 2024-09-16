@@ -13,9 +13,9 @@ GameObject:
   - component: {fileID: 33790042174619686}
   - component: {fileID: 23747677035716922}
   - component: {fileID: 114973852414686920}
-  - component: {fileID: 114999847245811208}
-  - component: {fileID: 6082034917998997483}
-  m_Layer: 0
+  - component: {fileID: 2594138482914316577}
+  - component: {fileID: 1774121778044794877}
+  m_Layer: 6
   m_Name: AR Feathered Plane
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -46,7 +46,7 @@ MeshCollider:
   m_GameObject: {fileID: 1585201990951412}
   m_Material: {fileID: 0}
   m_IsTrigger: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 4
   m_Convex: 0
   m_CookingOptions: 30
@@ -79,7 +79,7 @@ MeshRenderer:
   m_RenderingLayerMask: 4294967295
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: d5774351bc3ae4ad393dc1d142ff4235, type: 2}
+  - {fileID: 2100000, guid: 8609961af1ae57948bbef3a94e2c3502, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -114,8 +114,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_DestroyOnRemoval: 1
-  m_VertexChangedThreshold: 0.01
---- !u!114 &114999847245811208
+  m_VertexChangedThreshold: 0.05
+--- !u!114 &2594138482914316577
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -129,7 +129,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   m_TrackingStateVisibilityThreshold: 1
   m_HideSubsumed: 1
---- !u!114 &6082034917998997483
+--- !u!114 &1774121778044794877
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -138,7 +138,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 1585201990951412}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4694583967bd9483f9841409d278f46f, type: 3}
+  m_Script: {fileID: 11500000, guid: 83e7e6a4c38dea049a259c68c6acba7e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  m_FeatheringWidth: 0.2
+  m_FeatheringWidth: 0

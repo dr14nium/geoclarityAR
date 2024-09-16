@@ -63,3 +63,4 @@ crashlytics-build.properties
 
 # Exceptions for external libraries
 !Assets/Plugins/
+node_modules

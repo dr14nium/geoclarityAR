@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "FeatureAttributes", menuName = "ScriptableObjects/FeatureAttributes", order = 1)]
@@ -28,7 +29,11 @@ public class FeatureAttributes : ScriptableObject
         {
             return values[index];
         }
-        return "Not available";
+        else
+        {
+            Debug.LogError($"Key '{key}' not found in FeatureAttributes or mismatch in key-value pairs.");
+            return "Not available"; // Beri return default yang aman
+        }
     }
 
     // This method allows you to set the value for a given key
@@ -39,5 +44,18 @@ public class FeatureAttributes : ScriptableObject
         {
             values[index] = value;
         }
+    }
+
+    // This method returns all attributes as a formatted string
+    public string GetInformation()
+    {
+        StringBuilder info = new StringBuilder();
+
+        for (int i = 0; i < keys.Count; i++)
+        {
+            info.AppendLine($"{keys[i]}: {values[i]}");
+        }
+
+        return info.ToString();
     }
 }

@@ -9,7 +9,7 @@ public class BlockFromGeoJsonBuilderEditor : Editor
         BlockFromGeoJsonBuilder builder = (BlockFromGeoJsonBuilder)target;
 
         // GeoJSON file and world position anchor
-        builder.geoJsonFile = (TextAsset)EditorGUILayout.ObjectField("GeoJSON File", builder.geoJsonFile, typeof(TextAsset), false);
+        builder.apiUrl = EditorGUILayout.TextField("API URL", builder.apiUrl);
         builder.worldPositionAnchor = (WorldPositionAnchor)EditorGUILayout.ObjectField("World Position Anchor", builder.worldPositionAnchor, typeof(WorldPositionAnchor), true);
         builder.objectNamePrefix = EditorGUILayout.TextField("Object Name Prefix", builder.objectNamePrefix);
 
@@ -109,7 +109,9 @@ public class BlockFromGeoJsonBuilderEditor : Editor
         // Button to generate objects (right side)
         if (GUILayout.Button("Generate Objects"))
         {
-            builder.GenerateObjects();
+            // Note: Remove GenerateObjects() if you don't have this method anymore
+            // If you use a different method to generate objects, replace this line accordingly
+            builder.StartCoroutine(builder.FetchGeoJsonData());
             // Ensure the editor reflects changes immediately
             EditorUtility.SetDirty(builder);
         }

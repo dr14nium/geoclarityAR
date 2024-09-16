@@ -8,16 +8,16 @@ public class BlockFromPolygonBuilder : MonoBehaviour
     private float height;
     private WorldPositionAnchor worldPositionAnchor;
     private bool createWireframe;
-    private Color wireframeColor = Color.black; // Default wireframe color
+    private Color wireframeColor = Color.black;  // Warna wireframe default
 
-    public float wireframeThickness = 0.1f; // Adjustable wireframe thickness from Inspector
+    public float wireframeThickness = 0.1f;  // Ketebalan wireframe yang bisa diatur dari Inspector
 
     public void Initialize(GeoJSON.Net.Geometry.Polygon geometry, IDictionary<string, object> properties, WorldPositionAnchor anchor, string heightField, bool isWireframe, Color color, bool useUniformHeight, float uniformHeight)
     {
         floorPolygon = new List<Vector3>();
         worldPositionAnchor = anchor;
         createWireframe = isWireframe;
-        wireframeColor = color; // Set wireframe color from parameter
+        wireframeColor = color;  // Setel warna wireframe dari parameter
 
         // Convert GeoJSON coordinates to Unity world coordinates using WorldPositionAnchor
         foreach (var coord in geometry.Coordinates[0].Coordinates)
@@ -69,70 +69,117 @@ public class BlockFromPolygonBuilder : MonoBehaviour
             return;
         }
 
-        // Create a new mesh
-        MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
-        MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
+        // Hanya tambahkan MeshRenderer dan MeshFilter jika createFullMesh == true
+        if (createFullMesh)
+        {
+            MeshFilter meshFilter = gameObject.AddComponent<MeshFilter>();
+            MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
+            DrawFullMesh(meshFilter, meshRenderer);
+        }
 
         if (createWireframe)
         {
-            DrawWireframeMesh(meshFilter);
-        }
-        else if (createFullMesh)
-        {
-            DrawFullMesh(meshFilter, meshRenderer);
+            DrawWireframeMesh(null); // Tidak perlu MeshFilter untuk wireframe
         }
     }
 
     private void DrawWireframeMesh(MeshFilter meshFilter)
     {
-        // Create a new GameObject for LineRenderer to handle all lines
-        GameObject lineObject = new GameObject("WireframeLine");
-        lineObject.transform.SetParent(this.transform);
+        GameObject wireframeObject = new GameObject("WireframeTube");
+        wireframeObject.transform.SetParent(this.transform, false); // Set parent to this object
+        wireframeObject.transform.localPosition = Vector3.zero;
+        wireframeObject.transform.localRotation = Quaternion.identity;
+        wireframeObject.transform.localScale = Vector3.one;
 
-        // Add LineRenderer component
-        LineRenderer lineRenderer = lineObject.AddComponent<LineRenderer>();
+        MeshRenderer meshRenderer = wireframeObject.AddComponent<MeshRenderer>();
+        Mesh tubeMesh = new Mesh();
 
-        // Set LineRenderer properties
-        int totalPositions = floorPolygon.Count * 2 + (height > 0 ? floorPolygon.Count * 4 : 0);
-        lineRenderer.positionCount = totalPositions;
-        lineRenderer.startWidth = wireframeThickness;
-        lineRenderer.endWidth = wireframeThickness;
+        // Adjust material and color
+        Material tubeMaterial = new Material(Shader.Find("Unlit/Color"));
+        tubeMaterial.color = wireframeColor; 
+        meshRenderer.sharedMaterial = tubeMaterial;
 
-        // Use sharedMaterial to prevent instantiation of a new material
-        lineRenderer.sharedMaterial = new Material(Shader.Find("Unlit/Color"));
-        lineRenderer.sharedMaterial.color = wireframeColor; // Set color from parameter
+        List<Vector3> vertices = new List<Vector3>();
+        List<int> triangles = new List<int>();
+        
+        float radius = wireframeThickness / 2f; // Set radius from thickness
+        int radialSegments = 8; // Number of subdivisions around the tube
 
-        // Disable world space usage
-        lineRenderer.useWorldSpace = false;
-
-        int positionIndex = 0;
-
-        // Add lines on the base
         for (int i = 0; i < floorPolygon.Count; i++)
         {
-            int next = (i + 1) % floorPolygon.Count;
-            lineRenderer.SetPosition(positionIndex++, floorPolygon[i]);
-            lineRenderer.SetPosition(positionIndex++, floorPolygon[next]);
+            Vector3 start = floorPolygon[i];
+            Vector3 end = floorPolygon[(i + 1) % floorPolygon.Count];
+            
+            CreateTube(vertices, triangles, start, end, radius, radialSegments);
         }
 
-        // Add vertical and roof lines if height > 0
+        // If height > 0, add vertical lines and roof
         if (height > 0)
         {
             for (int i = 0; i < floorPolygon.Count; i++)
             {
-                Vector3 bottomVertex = floorPolygon[i];
-                Vector3 topVertex = floorPolygon[i] + Vector3.up * height;
-                int next = (i + 1) % floorPolygon.Count;
-                Vector3 nextTopVertex = floorPolygon[next] + Vector3.up * height;
+                Vector3 bottom = floorPolygon[i];
+                Vector3 top = floorPolygon[i] + Vector3.up * height;
+                Vector3 nextBottom = floorPolygon[(i + 1) % floorPolygon.Count];
+                Vector3 nextTop = nextBottom + Vector3.up * height;
 
                 // Vertical lines
-                lineRenderer.SetPosition(positionIndex++, bottomVertex);
-                lineRenderer.SetPosition(positionIndex++, topVertex);
-
+                CreateTube(vertices, triangles, bottom, top, radius, radialSegments);
                 // Roof lines
-                lineRenderer.SetPosition(positionIndex++, topVertex);
-                lineRenderer.SetPosition(positionIndex++, nextTopVertex);
+                CreateTube(vertices, triangles, top, nextTop, radius, radialSegments);
             }
+        }
+
+        tubeMesh.vertices = vertices.ToArray();
+        tubeMesh.triangles = triangles.ToArray();
+
+        tubeMesh.RecalculateNormals();
+        tubeMesh.RecalculateBounds();
+
+        MeshFilter tubeMeshFilter = wireframeObject.AddComponent<MeshFilter>();
+        tubeMeshFilter.mesh = tubeMesh;
+    }
+
+    private void CreateTube(List<Vector3> vertices, List<int> triangles, Vector3 start, Vector3 end, float radius, int radialSegments)
+    {
+        Vector3 direction = (end - start).normalized;
+        Vector3 up = Vector3.up;
+        if (Vector3.Dot(up, direction) > 0.99f)
+        {
+            up = Vector3.right;
+        }
+        Vector3 right = Vector3.Cross(direction, up).normalized;
+        up = Vector3.Cross(right, direction).normalized;
+
+        int baseIndex = vertices.Count;
+
+        // Create the vertices around the start and end points
+        for (int i = 0; i <= radialSegments; i++)
+        {
+            float angle = (float)i / radialSegments * Mathf.PI * 2f;
+            Vector3 offset = right * Mathf.Cos(angle) * radius + up * Mathf.Sin(angle) * radius;
+
+            vertices.Add(start + offset); // Bottom circle
+            vertices.Add(end + offset); // Top circle
+        }
+
+        // Create triangles for the tube
+        for (int i = 0; i < radialSegments; i++)
+        {
+            int startBottom = baseIndex + i * 2;
+            int endBottom = baseIndex + (i + 1) * 2;
+            int startTop = startBottom + 1;
+            int endTop = endBottom + 1;
+
+            // First triangle
+            triangles.Add(startBottom);
+            triangles.Add(endBottom);
+            triangles.Add(startTop);
+
+            // Second triangle
+            triangles.Add(startTop);
+            triangles.Add(endBottom);
+            triangles.Add(endTop);
         }
     }
 
@@ -163,11 +210,11 @@ public class BlockFromPolygonBuilder : MonoBehaviour
                 int next = (i + 1) % floorPolygon.Count;
 
                 // Create the side faces (two triangles per side)
-                indices.Add(i); // First triangle
+                indices.Add(i);  // First triangle
                 indices.Add(floorPolygon.Count + next);
                 indices.Add(floorPolygon.Count + i);
 
-                indices.Add(i); // Second triangle
+                indices.Add(i);  // Second triangle
                 indices.Add(next);
                 indices.Add(floorPolygon.Count + next);
             }
@@ -215,10 +262,15 @@ public class BlockFromPolygonBuilder : MonoBehaviour
             }
         }
 
-        // Optional: Add mesh collider for the full mesh
-        MeshCollider collider = gameObject.AddComponent<MeshCollider>();
-        collider.sharedMesh = mesh;
-        collider.convex = false;
+        // Tambahkan MeshCollider di parent object yang sama
+        MeshCollider meshCollider = gameObject.AddComponent<MeshCollider>();
+        meshCollider.sharedMesh = mesh;
+        meshCollider.convex = false;
+
+        // Pastikan MeshCollider memiliki transformasi yang sinkron
+        meshCollider.transform.localPosition = Vector3.zero;
+        meshCollider.transform.localRotation = Quaternion.identity;
+        meshCollider.transform.localScale = Vector3.one;
     }
 
     private void TriangulateFace(List<Vector3> vertices, List<int> indices, int startIndex, int endIndex, bool isTopFace)
